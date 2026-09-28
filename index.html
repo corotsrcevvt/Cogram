@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تغيير كلمة السر</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; min-height: 100vh; display: flex;
+            justify-content: center; align-items: center;
+            background: #0b0b0b; color: white;
+            font-family: Arial, sans-serif; padding: 20px;
+        }
+        .container {
+            width: 100%; max-width: 420px; background: #171717;
+            border-radius: 20px; padding: 30px;
+            box-shadow: 0 15px 50px rgba(0,0,0,.45);
+        }
+        h1 { text-align: center; margin: 0 0 10px; }
+        .subtitle { text-align: center; color: #999; margin-bottom: 25px; }
+        input {
+            width: 100%; padding: 15px; margin-bottom: 14px;
+            border-radius: 12px; border: 1px solid #333;
+            background: #0d0d0d; color: white; font-size: 16px; outline: none;
+        }
+        input:focus { border-color: #777; }
+        button {
+            width: 100%; padding: 15px; border: none;
+            border-radius: 12px; background: white; color: black;
+            font-size: 16px; font-weight: bold; cursor: pointer;
+        }
+        button:disabled { opacity: .5; }
+        #message { margin-top: 18px; text-align: center; line-height: 1.6; }
+        .success { color: #4ade80; }
+        .error { color: #ff6464; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>تغيير كلمة السر</h1>
+    <p class="subtitle">أدخل كلمة السر الجديدة لحسابك</p>
+
+    <form id="resetForm">
+        <input type="password" id="password" placeholder="كلمة السر الجديدة" minlength="6" required>
+        <input type="password" id="confirmPassword" placeholder="تأكيد كلمة السر" minlength="6" required>
+        <button id="submitButton" type="submit">تغيير كلمة السر</button>
+    </form>
+
+    <div id="message"></div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://cotindbypzxeczkosrqm.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_acIC69QwwUQPLljy0mrEqw_SKq4Faqc";
+
+const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+);
+
+const form = document.getElementById("resetForm");
+const password = document.getElementById("password");
+const confirmPassword = document.getElementById("confirmPassword");
+const button = document.getElementById("submitButton");
+const message = document.getElementById("message");
+
+function showMessage(text, type = "") {
+    message.textContent = text;
+    message.className = type;
+}
+
+supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    console.log("Auth event:", event);
+
+    if (event === "PASSWORD_RECOVERY") {
+        if (session) {
+            form.classList.remove("hidden");
+            showMessage("أدخل كلمة السر الجديدة.");
+        } else {
+            form.classList.add("hidden");
+            showMessage("رابط إعادة التعيين غير صالح أو انتهت صلاحيته.", "error");
+        }
+    }
+});
+
+async function checkSession() {
+    const { data, error } = await supabaseClient.auth.getSession();
+
+    if (error) {
+        console.error(error);
+        form.classList.add("hidden");
+        showMessage("حدث خطأ أثناء التحقق من الرابط.", "error");
+        return;
+    }
+
+    if (!data.session) {
+        form.classList.add("hidden");
+        showMessage("رابط إعادة التعيين غير صالح أو انتهت صلاحيته.", "error");
+    }
+}
+
+form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const newPassword = password.value;
+    const confirm = confirmPassword.value;
+
+    if (newPassword.length < 6) {
+        showMessage("كلمة السر يجب أن تحتوي على 6 أحرف على الأقل.", "error");
+        return;
+    }
+
+    if (newPassword !== confirm) {
+        showMessage("كلمتا السر غير متطابقتين.", "error");
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = "جاري تغيير كلمة السر...";
+
+    const { error } = await supabaseClient.auth.updateUser({
+        password: newPassword
+    });
+
+    if (error) {
+        console.error(error);
+        showMessage("فشل تغيير كلمة السر: " + error.message, "error");
+        button.disabled = false;
+        button.textContent = "تغيير كلمة السر";
+        return;
+    }
+
+    showMessage("تم تغيير كلمة السر بنجاح.", "success");
+    form.classList.add("hidden");
+
+    await supabaseClient.auth.signOut();
+
+    setTimeout(() => {
+        window.location.href = "/login.html";
+    }, 2500);
+});
+
+checkSession();
+</script>
+</body>
+</html>
